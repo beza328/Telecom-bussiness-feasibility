@@ -399,3 +399,47 @@ def classify_customers_kmeans(df, engagement_metrics, num_clusters=3):
     df_clustered, kmeans_model = run_kmeans(df_normalized, engagement_metrics, num_clusters)
     
     return df_clustered, kmeans_model
+
+
+
+
+# Function to calculate the average values for numeric columns
+def calculate_averages(df, numeric_cols, group_col='MSISDN/Number'):
+    # Group by the 'MSISDN' column and calculate the mean for numeric columns
+    avg_numeric = df.groupby(group_col)[numeric_cols].mean().reset_index()
+    return avg_numeric
+
+# Function to identify the most common handset type per customer
+def most_common_handset_type(df, group_col='MSISDN/Number', handset_col='handset_type'):
+    # Group by 'MSISDN' and find the mode (most frequent value) for the handset column
+    most_common_handset = df.groupby(group_col)[handset_col].agg(lambda x: x.mode()[0]).reset_index()
+    return most_common_handset
+
+# Function to merge the average numeric data with handset type
+def aggregate_customer_data(df, numeric_cols, handset_col='handset_type', group_col='MSISDN/Number'):
+    # Calculate averages for numeric columns
+    avg_numeric = calculate_averages(df, numeric_cols, group_col)
+
+    # Get the most common handset type per customer
+    common_handset = most_common_handset_type(df, group_col, handset_col)
+
+    # Merge the two dataframes on 'MSISDN'
+    result = pd.merge(avg_numeric, common_handset, on=group_col)
+    return result
+
+# Example usage
+def main():
+    # Columns of interest
+    numeric_cols = ['TCP_retransmission', 'RTT', 'throughput']
+    handset_col = 'handset_type'
+    
+    # Assuming df is your telecom dataset
+    customer_data = aggregate_customer_data(df, numeric_cols, handset_col)
+
+    # Display the results
+    return customer_data
+
+# Call the main function to process and display the data
+if __name__ == "__main__":
+    result = main()
+    print(result.head())  # Print the first few rows of the result
