@@ -324,23 +324,32 @@ def perform_regression_analysis(df, apps):
     
     return r2_values
 
+# Convert start and end times to datetime format
+def convert_to_datetime(df, Start, End):
+    df[Start] = pd.to_datetime(df[Start])
+    df[End] = pd.to_datetime(df[End])
+    return df
+
+# Calculate session duration
+def calculate_session_duration_from_times(df, Start, End):
+    df['session_duration'] = (df[End] - df[Start]).dt.total_seconds() / 3600  # convert to hours
+    return df.groupby('MSISDN/Number')['session_duration'].sum().reset_index(name='total_session_duration')
+
 # Function to calculate session frequency per user
 def calculate_session_frequency(df):
     return df.groupby('MSISDN/Number').size().reset_index(name='session_frequency')
 
-# Function to calculate session duration per user (assuming 'session_duration' column exists)
-def calculate_session_duration(df):
-    return df.groupby('MSISDN/Number')['session_duration'].sum().reset_index(name='total_session_duration')
-
 # Function to calculate total traffic (DL + UL) per user
 def calculate_total_traffic(df):
-    df['total_traffic'] = df['download_bytes'] + df['upload_bytes']
+    df['total_traffic'] = df['Total DL (Bytes)'] + df['Total UL (Bytes)']
     return df.groupby('MSISDN/Number')['total_traffic'].sum().reset_index(name='total_session_traffic')
 
 # Main function to track user engagement metrics
-def track_user_engagement(df):
+def track_user_engagement(df, Start, End):
+    df = convert_to_datetime(df, [Start, End])
+    
     session_frequency = calculate_session_frequency(df)
-    session_duration = calculate_session_duration(df)
+    session_duration = calculate_session_duration_from_times(df, Start, End)
     total_traffic = calculate_total_traffic(df)
     
     # Merging the results into one dataframe
@@ -348,3 +357,41 @@ def track_user_engagement(df):
     engagement_df = engagement_df.merge(total_traffic, on='MSISDN/Number')
     
     return engagement_df
+
+def convert_to_datetime(df, columns):
+    for col in columns:
+        df[col] = pd.to_datetime(df[col], errors='coerce')  # Coerce invalid parsing to NaT
+    return df
+
+# Get top N customers based on engagement metric
+def get_top_customers(df, metric, top_n=10):
+    return df[['MSISDN/Number', metric]].sort_values(by=metric, ascending=False).head(top_n)
+
+
+def normalize_engagement_metrics(df, columns):
+    scaler = MinMaxScaler()
+    df[columns] = scaler.fit_transform(df[columns])
+    return df
+
+# Function to apply K-means clustering
+def run_kmeans(df, columns, num_clusters=3):
+    kmeans = KMeans(n_clusters=num_clusters, random_state=42)
+    df['cluster'] = kmeans.fit_predict(df[columns])
+    return df, kmeans
+
+# Function to plot the clusters
+def plot_clusters(df, x_col, y_col):
+    plt.figure(figsize=(10, 6))
+    plt.scatter(df[x_col], df[y_col], c=df['cluster'], cmap='viridis')
+    plt.xlabel(x_col)
+    plt.ylabel(y_col)
+    plt.title(f'K-means Clustering of {x_col} vs {y_col}')
+    plt.colorbar(label='Cluster')
+    plt.show()
+
+# Function to normalize and cluster the engagement metrics
+def classify_customers_kmeans(df, engagement_metrics, num_clusters=3):
+    df_normalized = normalize_engagement_metrics(df, engagement_metrics)
+    df_clustered, kmeans_model = run_kmeans(df_normalized, engagement_metrics, num_clusters)
+    
+    return df_clustered, kmeans_model
