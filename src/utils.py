@@ -5,6 +5,10 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 import seaborn as sns
 import matplotlib.pyplot as plt
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.cluster import KMeans
+
+
 
 def missing_values_table(df):
     # Total missing values
